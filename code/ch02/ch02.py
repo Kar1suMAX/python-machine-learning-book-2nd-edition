@@ -119,7 +119,7 @@ class Perceptron(object):
 
         """
         rgen = np.random.RandomState(self.random_state)
-        self.w_ = rgen.normal(loc=0.0, scale=0.01, size=1 + X.shape[1])
+        self.w_ = rgen.normal(loc=0.0, scale=0.01, size=1 + X.shape[1]) # initialise the array by 0, but it has 0.01 std
         self.errors_ = []
 
         for _ in range(self.n_iter):
