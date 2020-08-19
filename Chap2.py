@@ -12,7 +12,7 @@ class Perceptron(object):
 
 	def fit(self, X, y):
 		rgen    = np.random.RandomState(self.random_state)
-		self.w_ = rgen.normal(loc=0.0, scale=0.01, size=1 + X.shape[1]) # initialise the array by 0, but it has 0.01 std
+		self.w_ = rgen.normal(loc=0.0, scale=0.01, size=X.shape[1] + 1) # initialise the array by 0, but it has 0.01 std
 		self.errors_ = []
 
 		for _ in range(self.n_iter):
@@ -32,6 +32,116 @@ class Perceptron(object):
 	def predict(self, X):
 		"""Return class label after unit step"""
 		return np.where(self.net_input(X) >= 0.0, 1, -1)
+
+
+# AdalineGD classifier
+class AdalineGD(object):
+		def __init__(self, eta=0.01, n_iter=50, random_state=1):
+				self.eta          = eta
+				self.n_iter       = n_iter
+				self.random_state = random_state
+
+		def fit(self, X, y):
+				rgen       = np.random.RandomState(self.random_state)
+				self.w_    = rgen.normal(loc=0.0, scale=0.01, size=X.shape[1] + 1)
+				self.cost_ = []
+
+				for i in range(self.n_iter):
+						net_input = self.net_input(X)
+						# Please note that the "activation" method has no effect
+						# in the code since it is simply an identity function. We
+						# could write `output = self.net_input(X)` directly instead.
+						# The purpose of the activation is more conceptual, i.e.,  
+						# in the case of logistic regression (as we will see later), 
+						# we could change it to
+						# a sigmoid function to implement a logistic regression classifier.
+						output = self.activation(net_input)
+						errors = (y - output)
+						self.w_[1:] += self.eta * X.T.dot(errors)
+						self.w_[0]  += self.eta * errors.sum()
+						cost = (errors**2).sum() / 2.0
+						self.cost_.append(cost)
+				return self
+
+		def net_input(self, X):
+				"""Calculate net input"""
+				return np.dot(X, self.w_[1:]) + self.w_[0]
+
+		def activation(self, X):
+				"""Compute linear activation"""
+				# in the current function, we use the activation function phi defined by phi(x) = x
+				return X
+
+		def predict(self, X):
+				"""Return class label after unit step"""
+				return np.where(self.activation(self.net_input(X)) >= 0.0, 1, -1)
+
+
+# ADAptive LInear NEuron classifier
+class AdalineSGD(object):
+		def __init__(self, eta=0.01, n_iter=10, shuffle=True, random_state=None):
+				self.eta           = eta
+				self.n_iter        = n_iter
+				self.w_initialized = False
+				self.shuffle       = shuffle
+				self.random_state  = random_state
+				
+		def fit(self, X, y):
+				self._initialize_weights(X.shape[1])
+				self.cost_ = []
+				for i in range(self.n_iter):
+						if self.shuffle:
+								X, y = self._shuffle(X, y)
+						cost = []
+						for xi, target in zip(X, y):
+								cost.append(self._update_weights(xi, target))
+						avg_cost = sum(cost) / len(y)
+						self.cost_.append(avg_cost)
+				return self
+
+		def partial_fit(self, X, y):
+				"""Fit training data without reinitializing the weights"""
+				if not self.w_initialized:
+						self._initialize_weights(X.shape[1])
+				if y.ravel().shape[0] > 1:
+						for xi, target in zip(X, y):
+								self._update_weights(xi, target)
+				else:
+						self._update_weights(X, y)
+				return self
+
+		def _shuffle(self, X, y):
+				"""Shuffle training data"""
+				r = self.rgen.permutation(len(y))
+				return X[r], y[r]
+		
+		def _initialize_weights(self, m):
+				"""Initialize weights to small random numbers"""
+				self.rgen = np.random.RandomState(self.random_state)
+				self.w_ = self.rgen.normal(loc=0.0, scale=0.01, size=1 + m)
+				self.w_initialized = True
+				
+		def _update_weights(self, xi, target):
+				"""Apply Adaline learning rule to update the weights"""
+				output = self.activation(self.net_input(xi))
+				error  = (target - output)
+				self.w_[1:] += self.eta * xi.dot(error)
+				self.w_[0]  += self.eta * error
+				cost = 0.5 * error**2
+				return cost
+		
+		def net_input(self, X):
+				"""Calculate net input"""
+				return np.dot(X, self.w_[1:]) + self.w_[0]
+
+		def activation(self, X):
+				"""Compute linear activation"""
+				return X
+
+		def predict(self, X):
+				"""Return class label after unit step"""
+				return np.where(self.activation(self.net_input(X)) >= 0.0, 1, -1)
+
 
 
 def plot_decision_regions(X, y, classifier, resolution=0.02):
@@ -117,7 +227,41 @@ plot_decision_regions(X, y, classifier = ppn)
 plt.xlabel("sepal length [cm]")
 plt.ylabel("petal length [cm]")
 plt.legend(loc="upper left")
+plt.close()
+#-------------------------------------------------------------------------------------------
+# ADALINEのプロット
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
+# 勾配降下法によるADALINEの学習
+ada1  = AdalineGD(n_iter=10, eta=0.01).fit(X,y)
+ada2  = AdalineGD(n_iter=10, eta=0.0001).fit(X,y)
+ax[0].plot(range(1,len(ada1.cost_)+1), np.log10(ada1.cost_), marker="o")
+ax[1].plot(range(1,len(ada2.cost_)+1), np.log10(ada2.cost_), marker="o")
+
+ax[0].set_xlabel("Epochs")
+ax[0].set_ylabel("log(Sum-squared-error)")
+ax[1].set_xlabel("Epochs")
+ax[1].set_ylabel("log(Sum-squared-error)")
 plt.show()
+#-------------------------------------------------------------------------------------------
+# 正規化
+# ADALINEのプロット
+X_std = np.copy(X)
+X_std[:,0] = (X_std[:,0] - X_std[:,0].mean()) / X_std[:,0].std()
+X_std[:,1] = (X_std[:,1] - X_std[:,1].mean()) / X_std[:,1].std()
+# ADALINEのプロット
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
+# 勾配降下法によるADALINEの学習
+ada1  = AdalineGD(n_iter=10, eta=0.01).fit(X_std, y)
+ada2  = AdalineGD(n_iter=10, eta=0.0001).fit(X_std, y)
+ax[0].plot(range(1,len(ada1.cost_)+1), np.log10(ada1.cost_), marker="o")
+ax[1].plot(range(1,len(ada2.cost_)+1), np.log10(ada2.cost_), marker="o")
+
+ax[0].set_xlabel("Epochs")
+ax[0].set_ylabel("log(Sum-squared-error)")
+ax[1].set_xlabel("Epochs")
+ax[1].set_ylabel("log(Sum-squared-error)")
+plt.show()
+
 
 """
 # setosaのプロット(red "o")
