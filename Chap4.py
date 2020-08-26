@@ -139,10 +139,51 @@ knn.fit(X_train_std, y_train)
 print('Test accuracy:', knn.score(X_test_std, y_test))
 knn.fit(X_train_std[:, k3], y_train)
 print('Test accuracy:', knn.score(X_test_std[:, k3], y_test))
+#-------------------------------------------------------------------------------------------
+# データセットの特徴量の名称
+feat_labels = df_wine.columns[1:]
+# 決定木の個数500個
+forest = RandomForestClassifier(n_estimators=500, random_state=1)
+forest.fit(X_train, y_train)
+
+# 特徴量の重要度を抽出
+importances = forest.feature_importances_
+# 重要度の降順で特徴量のインデックスを抽出
+indices = np.argsort(importances)[::-1]
+
+for f in range(X_train.shape[1]):
+    print("%2d) %-*s %f" % (f + 1, 30, 
+                            feat_labels[indices[f]], 
+                            importances[indices[f]]))
+
+plt.title('Feature Importance')
+plt.bar(range(X_train.shape[1]), 
+        importances[indices],
+        align='center')
+
+plt.xticks(range(X_train.shape[1]), 
+           feat_labels[indices], rotation=90)
+plt.xlim([-1, X_train.shape[1]])
+plt.tight_layout()
+#plt.savefig('images/04_09.png', dpi=300)
+plt.show()
+plt.close()
+#-------------------------------------------------------------------------------------------
+# 重要な特徴量だけ出力
+sfm = SelectFromModel(forest, threshold=0.1, prefit=True)
+X_selected = sfm.transform(X_train)
+print('Number of features that meet this threshold criterion:', 
+      X_selected.shape[1])
+
+
+# Now, let's print the 3 features that met the threshold criterion for feature selection that we set earlier (note that this code snippet does not appear in the actual book but was added to this notebook later for illustrative purposes):
 
 
 
-
+for f in range(X_selected.shape[1]):
+    print("%2d) %-*s %f" % (f + 1, 30, 
+                            feat_labels[indices[f]], 
+                            importances[indices[f]]))
 
 
 
